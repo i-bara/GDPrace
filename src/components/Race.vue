@@ -94,41 +94,129 @@ Promise.all(promises).then(_ => {
     console.log(info["2010"]["USA"]);
     console.log(info["2011"]["USA"]);
 
-    const date = ref(new Date("2010-04-30"));
-
-    getInfo(info, date.value, "CHN");
-    getInfo(info, date.value, "USA");
-
-    const obj = reactive({});
-
-    watch(obj, (newValue, oldValue) => {
-        console.log("obj!")
-    })
-
-    obj.count++
-
-    // watch(
-    //     () => date,
-    //     date => {
-    //         console.log('kkkkkkkkk');
-    //     },
-    //     { deep: true },
-    // )
-
-    watch(date, (newValue, oldValue) => {
-        console.log('Date changed from:', oldValue, 'to:', newValue);
-    });
+    const date = ref(new Date("1960-01-01"));
 
     watchEffect(_ => {
-        console.log("wwwwwwwwwwww");
         for (let code of codes) {
             const infoCode = getInfo(info, date.value, code);
             data[code] = infoCode;
         }
         data["WLD"] = getInfo(info, date.value, "WLD");
     });
+
+    const displayDate = ref(new Date(date.value));
+
+    let going = {"going": true};
+
+    watchEffect(() => {
+        displayDate.value = new Date(date.value);
+    });
+
+    let now = ref("Bar");
+
+    const barRace = createBarRace(codes, data, countryCodeToName, displayDate);
+    const pieRace = createPieRace(codes, data, countryCodeToName, displayDate);
+    const mapRace = createMapRace(codes, data, countryCodeToName, displayDate);
+    const button = createButton(date, displayDate, going);
+    // barRace.node().style.position = "absolute";
+    // pieRace.node().style.position = "absolute";
+    // button.node().style.position = "absolute";
+    // button.node().style.top = "640";
+
+    let nowRace = barRace;
+
+    // barRace
+    //     .style("opacity", 0)
+    //     .transition()
+    //     .duration(1500)
+    //     .style("opacity", 1);
+    // document.getElementById("container").append(barRace.node());
+
+    // barRace.node().remove();
     
-    createBarRace(codes, data, countryCodeToName, date);
+    // function change() {
+    //     if (now == "Bar") {
+    //         barRace.node().remove();
+    //     }
+    // }
+    
+    // document.getElementById("container").append(pieRace.node());
+    document.getElementById("container").append(button.node());    
+
+    const star = document.createElement("span");
+    star.setAttribute("class", "fa fa-play");
+    star.style.position = "absolute";
+    star.style.top = "697px";
+    star.style.right = "1339px";
+    star.style.color = "white";
+    star.style.pointerEvents = "none";
+    document.getElementById("container").append(star);
+
+    setInterval(() => {
+        if (date.value > new Date("2021-01-01")) {
+            going.going = false;
+        }
+        if (going.going) {
+            displayDate.value = new Date(displayDate.value.setDate(displayDate.value.getDate() + 1))
+            if (displayDate.value.getMonth() % 1 == 0 && (displayDate.value.getDate() % 10 == 0)) {
+                date.value = new Date(displayDate.value);
+            }
+            star.setAttribute("class", "fa fa-pause");
+        } else {
+            star.setAttribute("class", "fa fa-play");
+        }
+    }, 100 / 365);
+
+    // svg.append("span")
+    //     .attr("class", "fa fa-star");
+
+    const changeBtnSpan = document.createElement('div');
+    changeBtnSpan.style.display = "inline-block";
+    changeBtnSpan.style.borderRadius = "10px";
+    changeBtnSpan.style.border = "1.6px solid Steelblue";
+    changeBtnSpan.style.overflow = "hidden";
+    changeBtnSpan.style.position = "relative";
+    changeBtnSpan.style.top = "20px";
+
+    function createChangeBtn(name, race) {
+        const changeBtn = document.createElement('button');
+        changeBtnSpan.appendChild(changeBtn);
+        changeBtn.class = "btn";
+        changeBtn.textContent = name;
+        changeBtn.style.border = "Steelblue";
+        changeBtn.style.padding = "10px 20px";
+        changeBtn.style.transition = "background-color 0.3s, color 0.3s";
+        
+        changeBtn.onclick = () => {
+            now.value = name;
+        };
+        watchEffect(() => {
+            if (now.value == name) {
+                nowRace.node().remove();
+                const container = document.getElementById("container");
+                race
+                    .style("opacity", 0.33)
+                    .transition()
+                    .duration(500)
+                    .ease(d3.easeCubicOut)
+                    .style("opacity", 1);
+                container.insertBefore(race.node(), container.firstChild);
+                nowRace = race;
+
+                changeBtn.style.backgroundColor = "Steelblue";
+                changeBtn.style.color = "White";    
+            } else {
+                changeBtn.style.backgroundColor = "Transparent";
+                changeBtn.style.color = "Steelblue";
+            }
+        });
+        return changeBtn;
+    }
+
+    const changeBtn1 = createChangeBtn('Bar', barRace);
+    const changeBtn2 = createChangeBtn('Pie', pieRace);
+    const changeBtn3 = createChangeBtn('Map', mapRace);
+    document.getElementById("container").append(changeBtnSpan);
 
     // for (let i = 0; i < count; i++) {
     //     watchEffect(() => {
@@ -167,124 +255,524 @@ console.log(new Date("2024-01-01"));
 let date = new Date("2021-04-18T00:00:00.000+00:00")
 // let utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds(), date.getUTCMilliseconds()));
 
-
-function createBarRace(names, data, dict, date) {
-    date.value = new Date("1960-01-01");
+function createButton(date, displayDate, going) {
+    const width = 1000;
+    const height = 50;
+    const svg = d3.create("svg")
+            .attr("width", width)
+            .attr("height", height);
     
+    function b() {
+        return () => {
+            date.value.setDate(date.value.getDate() + 100);
+            date.value = new Date(date.value);
+        }
+    }
+
+    function s() {
+        console.log(xBegin);
+        console.log(new Date("1960-01-01").getDate());
+        console.log('date');
+        console.log(new Date("1960-01-01"));
+        console.log();
+        if (xBegin != undefined) {
+            if (xBegin < 0) {
+                date.value = new Date(new Date("1960-01-01").setMilliseconds((new Date("2021-01-01") - new Date("1960-01-01")) / 400 * 0));
+            } else if (xBegin > 400) {
+                date.value = new Date(new Date("1960-01-01").setMilliseconds((new Date("2021-01-01") - new Date("1960-01-01")) / 400 * 400));
+            } else {
+                date.value = new Date(new Date("1960-01-01").setMilliseconds((new Date("2021-01-01") - new Date("1960-01-01")) / 400 * xBegin));
+            }
+            displayDate.value = new Date(date.value);
+        }
+    }
+
+    const x = d3.scaleUtc()
+        .domain([new Date("1960-01-01"), new Date("2021-01-01")])
+        .range([300, 700]);
+
+    // Add the x-axis.
+    const gx = svg.append("g")
+        .attr("transform", `translate(0, 30)`)
+        .call(d3.axisBottom(x))
+        .style("z-index", "10");
+
+    
+    let nextTranslateX = 0;
+    let xBegin;
+    let yBegin;
+    let time = new Date();
+    const transform = [0, 0];
+    const dragButton = svg.append("circle")
+        .attr("cx", 300)
+        .attr("cy", 30)
+        .attr("r", 12)
+        .on("click", b)
+        .on("mouseover", function(d) {
+                d3.select(this).transition().duration(300).style("fill", "skyblue").style("cursor", "pointer").attr("r", 20);
+            })
+        .on("mouseout", function(d) {
+                d3.select(this).transition().duration(300).style("fill", "steelblue").style("cursor", "default").attr("r", 12);
+            }
+        )
+        .style("fill", d3.color("steelblue"))
+        .call(d3.drag()
+            .on("start", function(event) {
+            })
+            .on("drag", function(event) {
+                const [x_, y_] = d3.pointer(event);
+                const gxRect = gx.node().getBoundingClientRect();
+                const x = x_ - gxRect.left;
+                const y = y_ - gxRect.top;
+                if (xBegin != undefined && yBegin != undefined) {
+                    transform[0] += x - xBegin;
+                    transform[1] += y - yBegin;
+                    const newTime = new Date();
+                    if (newTime - time > 40) {
+                        s();
+                        time = newTime;
+                    }
+                }
+                console.log(gxRect.left);
+                console.log(x);
+                [xBegin, yBegin] = [x, y];
+                let now = transform[0];
+                if (now < 0) {
+                    now = 0;
+                }
+                if (now > 400) {
+                    now = 400;
+                }
+                d3.select(this)
+                    // .attr("transform", `translate(${now}, 0)`)
+                    .transition().duration(100)
+                    .style("fill", "skyblue")
+                    .style("cursor", "pointer")
+                    .attr("r", 20);
+            })
+            .on("end", function() {
+                xBegin = undefined;
+                yBegin = undefined;
+                const newTime = new Date();
+                s();
+                time = newTime;
+            })
+        )
+
+    watchEffect(_ => {
+        const translateX = 400. * (date.value - new Date("1960-01-01")) / (new Date("2021-01-01") - new Date("1960-01-01"));
+        dragButton.attr("transform", `translate(${translateX}, 0)`);
+        
+        // if (xBegin == undefined) {
+        //     // dragButton.attr("cx", 300. + translateX);
+        //     dragButton.attr("transform", `translate(${translateX}, 0)`);
+        // }
+    });
+
+    const goingButton = svg.append("circle")
+        .attr("cx",  30)
+        .attr("cy", 30)
+        .attr("r", 12)
+        .on("click", () => going.going = !going.going)
+        .on("mouseover", function(d) {
+                d3.select(this).transition().duration(300).style("fill", "skyblue").style("cursor", "pointer").attr("r", 20);
+            })
+        .on("mouseout", function(d) {
+                d3.select(this).transition().duration(300).style("fill", "steelblue").style("cursor", "default").attr("r", 12);
+            }
+        )
+        .style("fill", d3.color("steelblue"));
+
+    const i = svg.append("span")
+        .attr("class", "fa fa-star");
+
+    const triangle = svg.append("path")
+        .attr("d", d3.symbol()
+            .type(d3.symbolTriangle)
+            .size(6))
+            .attr("x", 30)
+            .attr("y", 30)
+            .attr("fill", d3.color("deepblue"));
+
+    return svg;
+}
+
+class ClickButton {
+  constructor(name, url) {
+    this.name = name;
+    this.url = url;
+  }
+}
+
+function sort(names, data) {
+    const sortable = [];
+    const rank = {}
+
+    for (let name of names) {
+        if (!isNaN(data[name])) {
+            sortable.push([name, data[name]]);
+        }
+    }
+
+    // console.log(sortable);
+
+    sortable.sort(function(a, b) {
+        return b[1] - a[1];
+    });
+
+    // console.log(sortable);
+
+    for (let i = 0; i < sortable.length; i++) {
+        const name = sortable[i][0];
+        if (i < 10) {
+            rank[name] = i + 1;
+        } else {
+            rank[name] = 15;
+        }
+    }
+    return [sortable, rank];
+}
+
+function createPieRace(names, data, dict, displayDate) {
+    const width = 1240;
+    const height = 640;
+    const svg = d3.create("svg")
+            .attr("width", width)
+            .attr("height", height);
+    
+    const paths = {};
+    const texts = {};
+    const values = {};
+    const lines = {};
+
+    const centerX = height/2-70;
+    const centerY = width/2-170;
+    const outY = -width/2-170;
+
+    nowInfo(svg, data, displayDate, 800, height/2 - 60);
+
+    watchEffect(_ =>{
+        const [sortable, rank] = sort(names, data);
+        const sortableRanking10 = sortable.slice(0, 10);
+        const dataDict = {};
+        let sum = 0;
+        for (let i = 0; i < 10; i++) {
+            sum += sortableRanking10[i][1];
+            dataDict[sortableRanking10[i][0]] = sortableRanking10[i][1];
+        }
+        sortableRanking10.push(["Other", data["WLD"] - sum]);
+        dataDict["Other"] = data["WLD"] - sum;
+        const pie = d3.pie()
+            .sort(null)
+            .padAngle(0.015)
+            .value(d => d[1]);
+        const arcs = pie(sortableRanking10);
+        const namesInArcs = {};
+        // console.log(arcs);
+        for (let arc of arcs) {
+            if (!(arc.data[0] in paths)) {
+                paths[arc.data[0]] = svg.append("path")
+                    .attr("transform", `translate(${centerY},${centerX})`)
+                    .style("fill", d3.color("steelblue"));
+                texts[arc.data[0]] = svg.append("text")
+                    .attr("transform", "translate(" + (outY) + "," + (centerX) + ")")
+                    .style("fill", d3.color("steelblue"))
+                    .style("font-size", "18px");
+                values[arc.data[0]] = svg.append("text")
+                    .attr("dy", "1.2em")
+                    .attr("transform", "translate(" + (outY) + "," + (centerX) + ")")
+                    .style("fill", d3.color("steelblue"))
+                    .style("font-size", "12px");
+                lines[arc.data[0]] = svg.append("line")
+                    .attr("x1", (width/2-170))
+                    .attr("y1", (height/2))
+                    .attr("x2", (width/2-170))
+                    .attr("y2", (height/2))
+                    .style("stroke", d3.color("steelblue"));
+            }
+            namesInArcs[arc.data[0]] = arc;
+        }
+        for (let name in paths) {
+            const path = paths[name];
+            const text = texts[name];
+            const value = values[name];
+            const line = lines[name];
+            const country = name in dict ? dict[name] : "Other";
+            if (name in namesInArcs) {
+                const arc = namesInArcs[name];
+                // if (arc["endAngle"] - arc["startAngle"] > 0.05) { }
+                path
+                    .transition()
+                    .duration(500)
+                    .ease(d3.easeLinear)
+                    .attr("d", d3.arc()({
+                        innerRadius: 100,
+                        outerRadius: 150,
+                        startAngle: arc["startAngle"],
+                        endAngle: arc["endAngle"],
+                        // padAngle: (arc["endAngle"] - arc["startAngle"]) * 0.02,
+                        padAngle: arc["padAngle"],
+                    }))
+                    .style("opacity", 1);
+                const meanAngle = (arc["startAngle"] + arc["endAngle"]) / 2;
+                text
+                    .transition()
+                    .duration(500)
+                    .ease(d3.easeLinear)
+                    .attr("transform", "translate(" + (centerY + 300 * Math.sin(meanAngle)) + "," + (centerX - 300 * Math.cos(meanAngle)) + ")")
+                    .style("opacity", 1)
+                    .text(country + "(" + display(dataDict[name] / data["WLD"] * 100) + "%)");
+                value
+                    .transition()
+                    .duration(500)
+                    .ease(d3.easeLinear)
+                    .attr("transform", "translate(" + (centerY + 300 * Math.sin(meanAngle)) + "," + (centerX - 300 * Math.cos(meanAngle)) + ")")
+                    .style("opacity", 0.75)
+                    .text(display(dataDict[name]));
+                line
+                    .transition()
+                    .duration(500)
+                    .ease(d3.easeLinear)
+                    .attr("x1", (centerY + 150 * Math.sin(meanAngle)))
+                    .attr("y1", (centerX - 150 * Math.cos(meanAngle)))
+                    .attr("x2", (centerY + 270 * Math.sin(meanAngle)))
+                    .attr("y2", (centerX - 270 * Math.cos(meanAngle)))
+                    .style("opacity", 0.5);
+            } else {
+                path
+                    .transition()
+                    .duration(500)
+                    .ease(d3.easeLinear)
+                    .attr("d", d3.arc()({
+                        innerRadius: 0,
+                        outerRadius: 0,
+                        startAngle: 6.28,
+                        endAngle: 6.28,
+                        padAngle: 0,
+                    }))
+                    .style("opacity", 0);
+                text
+                    .transition()
+                    .duration(500)
+                    .ease(d3.easeLinear)
+                    .attr("transform", "translate(" + (outY) + "," + (centerX) + ")")
+                    .style("opacity", 0)
+                    .text("");
+                value
+                    .transition()
+                    .duration(500)
+                    .ease(d3.easeLinear)
+                    .attr("transform", "translate(" + (outY) + "," + (centerX) + ")")
+                    .style("opacity", 0)
+                    .text("");
+                line
+                    .transition()
+                    .duration(500)
+                    .ease(d3.easeLinear)
+                    .attr("x1", (centerY))
+                    .attr("y1", (centerX))
+                    .attr("x2", (centerY))
+                    .attr("y2", (centerX))
+                    .style("opacity", 0);
+            }
+        }
+    });
+    
+    // const arc = d3.svg.arc()
+    //     .innerRadius(0)
+    //     .outerRadius(1);
+    // const arcs = svg.selectAll("g")
+    //     .data(pie(sortable))
+    //     .enter()
+    //     .append("g")
+    //     .attr("transform", `translate(${width/2},${height/2})`);
+    // arcs.append("path")
+    //     .attr("fill", function(d, i) {
+    //         return color(i);
+    //     })
+    //     .attr("d", function(d) {
+    //         return arc(d);
+    //     });
+    
+    return svg;
+}
+
+function createMapRace(names, data, dict, displayDate) {
+    const width = 1240;
+    const height = 640;
+    const svg = d3.create("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+    const projection = d3.geoNaturalEarth1()
+        .scale(width / 2. / Math.PI)
+        .translate([width / 2, height / 2]);
+
+    // svg.append('path')
+        // .attr('class', 'sphere')
+        // .attr('d', pathGenerator({type: 'Sphere'}));
+
+    const countryNameText = svg.append("text")
+        .attr("x", 0)
+        .attr("y", 360)
+        .attr("dy", ".435em")
+        .style("fill", d3.color("steelblue"))
+        .style("font-size", "24px");
+
+    const gdpText = svg.append("text")
+        .attr("x", 0)
+        .attr("y", 390)
+        .attr("dy", ".435em")
+        .style("fill", d3.color("steelblue"))
+        .style("font-size", "12px");
+
+    d3.json('https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson').then(data_ => {
+        const path = svg.selectAll('path')
+            .data(data_.features)
+            .enter()
+            .append('path')
+            .style("cursor", "pointer")
+            .style("stroke", d3.color("steelblue"))
+            .attr("id", d => "map-" + d.id)
+            .attr("class", "map")
+            .attr("fill", d3.color("transparent"))
+            .attr('d', d3.geoPath().projection(projection))
+            .on("mouseover", (e, d) => {
+                const countryName = dict[d.id];
+                if (!isNaN(data[d.id])) {
+                    gdpText.text(display(data[d.id]));
+                    countryNameText.text(dict[d.id] + " (" + display(data[d.id] / data["WLD"] * 100) + "%)");
+                } else {
+                    gdpText.text("No data");
+                    countryNameText.text(dict[d.id]);
+                }
+                watchEffect(_ => {
+                    
+                });
+            });
+        console.log(path);
+    });
+
+    function mapColor(x) {
+        return Math.sqrt(x) * 1.3 + 0.1;
+    }
+
+    const interpolate = d3.interpolateLab("transparent", d3.interpolateLab("steelblue", "skyblue")(0.5));
+
+    const y = d3.scaleLinear()
+        .domain([0, 0.4])
+        .range([300, 100]);
+
+    // Add the y-axis.
+    const gy = svg.append("g")
+        .attr("transform", `translate(40, 0)`)
+        .call(d3.axisLeft(y).tickFormat(d3.format('~%')));
+
+    // const colorScale = d3.scaleLinear()
+    //     .domain([0, 0.4])
+    //     .range([d3.interpolate(mapColor(0)), d3.interpolate(mapColor(0.4))]);
+
+    // console.log(colorScale(0.2));
+
+    const split = 200;
+    for (let i = 0; i < split; i++) {
+        svg.append("rect")
+            .attr("x", 40)
+            .attr("y", y((i + 1) * 0.4 / split))
+            .attr("width", 20)
+            .attr("height", y(i * 0.4 / split) - y((i + 1) * 0.4 / split))
+            .style("stroke", d3.color("transparent"))
+            .style("fill", interpolate(mapColor(i * 0.4 / split)));
+    }
+
+    // svg.append("g")
+    //     .attr("transform", "translate(500,10)")
+    //     .call(legend);
+
+    // const maps = d3.selectAll(".map");
+    // console.log(maps);
+    // for (let map of maps) {
+    //     console.log(map);
+    //     map.onmouseover = () => {
+    //         countryNameText.text(map.attr("id"));
+    //     };
+    // }
+
+    watchEffect(_ =>{
+        const [sortable, rank] = sort(names, data);
+        for (let name of names) {
+            const map = document.getElementById("map-" + name);
+            if (map != undefined) {
+                // console.log(name, interpolate(data[name] / data["WLD"]));
+                // console.log(map.style.stroke, typeof(interpolate(data[name] / data["WLD"])));
+                // console.log(name, data[name]);
+                if (!isNaN(data[name])) {
+                    map.setAttribute('fill', interpolate(mapColor(data[name] / data["WLD"])));
+                } else {
+                    map.setAttribute('fill', interpolate(0));
+                }
+            }
+        }
+    });
+    
+    nowInfo(svg, data, displayDate, 0, height/2 + 150);
+
+    return svg;
+}
+
+function nowInfo(svg, data, displayDate, x, y) {
+    const yearText = svg.append("text")
+            .attr("x", x)
+            .attr("y", y)
+            .attr("dy", ".435em")
+            .style("fill", d3.color("steelblue"))
+            .style("font-size", "72px");
+
+    watchEffect(() => {
+        yearText
+            .text(displayDate.value.getFullYear());
+            // .text(date.value.toDateString());
+    });
+
+    const dateText = svg.append("text")
+            .attr("x", x + 175)
+            .attr("y", y + 13)
+            .attr("dy", ".435em")
+            .style("fill", d3.color("steelblue"))
+            .style("font-size", "40px");
+    
+    watchEffect(() => {
+        dateText
+            .text(displayDate.value.getMonth() + 1 + "/" + displayDate.value.getDate());
+            // .text(date.value.toDateString());
+    });
+
+    const world = svg.append("text")
+            .attr("x", x)
+            .attr("y", y + 70)
+            .attr("dy", ".435em")
+            .style("fill", d3.color("steelblue"))
+            .style("font-size", "24px");
+
+    watchEffect(() => {
+        world.text("World total: " + display(data["WLD"]));
+    });
+}
+
+function createBarRace(names, data, dict, displayDate) {
     const length = Array(names.length).fill().map(() => ref(0));
 
-    const width = 1280;
-    const height = 600;
+    const width = 1240;
+    const height = 640;
     const marginTop = 20;
-    const marginRight = 200;
+    const marginRight = 20;
     const marginBottom = 30;
     const marginLeft = 40;
 
     const svg = d3.create("svg")
             .attr("width", width)
             .attr("height", height);
-
-    const buttons = []
-
-    function b(i) {
-        return () => {
-            console.log("click!!!");
-            date.value.setDate(date.value.getDate() + 100);
-            date.value = new Date(date.value);
-            // console.log(length.map(x => x.value));
-            // length[i].value += 10;
-        }
-    }
-    
-    let xBegin;
-    let yBegin;
-    let time = new Date();
-
-    function s() {
-        console.log(new Date("1960-01-01").getDate());
-        if (xBegin != undefined) {
-            console.log(new Date("1960-01-01").getDate() + xBegin);
-            // watchEffect(_ => {
-            //     date.setFullYear(1960);
-            //     date.setMonth(1);
-            //     date.setDate(new Date("1960-01-01").getDate() + xBegin);
-            // });
-            date.value = new Date(new Date("1960-01-01").setDate(1 + xBegin * 30));
-            displayDate.value = new Date(date.value);
-            console.log(date.value);
-        }
-    }
-
-    const count = 5;
-    // .attr("transform", `translate(0,${height - marginBottom})`)
-    let transform = Array(count).fill().map(_ => [0, 0]);
-    for (let i = 0; i < count; i++) {
-        buttons.push(
-            svg.append("circle")
-            .attr("cx", 150 + 60 * i)
-            .attr("cy", 30)
-            .attr("r", 12)
-            .on("click", b(i))
-            .on("mouseover", function(d) {
-                    d3.select(this).transition().duration(300).style("fill", "deeppink").style("cursor", "pointer").attr("r", 20);
-                })
-            .on("mouseout", function(d) {
-                    d3.select(this).transition().duration(300).style("fill", "pink").style("cursor", "default").attr("r", 12);
-                }
-            )
-            .style("fill", d3.color("pink"))
-            .call(d3.drag()
-                .on("start", function(event) {
-                    // [xBegin, yBegin] = d3.pointer(event);
-                    // console.log(xBegin, yBegin);
-                })
-                .on("drag", function(event) {
-                    const [x, y] = d3.pointer(event);
-                    // console.log(x, y, xBegin, yBegin, i);
-                    if (xBegin != undefined && yBegin != undefined) {
-                        transform[i][0] += x - xBegin;
-                        transform[i][1] += y - yBegin;
-                        const newTime = new Date();
-                        if (newTime - time > 100) {
-                            s();
-                            time = newTime;
-                        }
-                        // console.log(xBegin);
-                        // console.log(date.value);
-                    }
-                    [xBegin, yBegin] = [x, y];
-                    d3.select(this)
-                        .attr("transform", `translate(${transform[i][0]}, 0)`)
-                        .transition().duration(100)
-                        .style("fill", "deeppink")
-                        .style("cursor", "pointer")
-                        .attr("r", 20);
-                })
-                .on("end", function() {
-                    xBegin = undefined;
-                    yBegin = undefined;
-                    const newTime = new Date();
-                    s();
-                    time = newTime;
-                })
-            )
-        );
-        // buttons[i]
-    }
-
-    const goingButton = svg.append("circle")
-        .attr("cx",  900)
-        .attr("cy", 30)
-        .attr("r", 12)
-        .on("click", () => going = !going)
-        .on("mouseover", function(d) {
-                d3.select(this).transition().duration(300).style("fill", "deeppink").style("cursor", "pointer").attr("r", 20);
-            })
-        .on("mouseout", function(d) {
-                d3.select(this).transition().duration(300).style("fill", "pink").style("cursor", "default").attr("r", 12);
-            }
-        )
-        .style("fill", d3.color("pink"));
+            
 
     const x = d3.scaleLinear()
         .domain([0, 1])
@@ -305,62 +793,9 @@ function createBarRace(names, data, dict, date) {
         .attr("transform", `translate(${marginLeft},0)`)
         .call(d3.axisLeft(y));
 
-    let going = true;
-
-    setInterval(() => {
-        if (going) {
-            displayDate.value = new Date(displayDate.value.setDate(displayDate.value.getDate() + 1))
-            if (displayDate.value.getMonth() % 1 == 0 && (displayDate.value.getDate() % 10 == 0)) {
-                date.value = new Date(displayDate.value);
-        }
-        }
-    }, 100 / 365);
-
-    const displayDate = ref(new Date(date.value));
-
-    watchEffect(() => {
-        displayDate.value = new Date(date.value);
-    });
-
-    const yearText = svg.append("text")
-            .attr("x", 700)
-            .attr("y", 450)
-            .attr("dy", ".435em")
-            .style("fill", d3.color("steelblue"))
-            .style("font-size", "72px");
-
-    watchEffect(() => {
-        yearText
-            .text(displayDate.value.getFullYear());
-            // .text(date.value.toDateString());
-    });
-
-    const dateText = svg.append("text")
-            .attr("x", 875)
-            .attr("y", 463)
-            .attr("dy", ".435em")
-            .style("fill", d3.color("steelblue"))
-            .style("font-size", "40px");
-    
-    watchEffect(() => {
-        dateText
-            .text(displayDate.value.getMonth() + 1 + "/" + displayDate.value.getDate());
-            // .text(date.value.toDateString());
-    });
-
-    const world = svg.append("text")
-            .attr("x", 700)
-            .attr("y", 520)
-            .attr("dy", ".435em")
-            .style("fill", d3.color("steelblue"))
-            .style("font-size", "24px");
-
-    watchEffect(() => {
-        world.text("World total: " + display(data["WLD"]));
-    });
+    nowInfo(svg, data, displayDate, 800, 480);
 
     // Create the SVG container.
-    document.getElementById("container").append(svg.node());
 
     const bars = {};
     const texts = {};
@@ -391,37 +826,13 @@ function createBarRace(names, data, dict, date) {
     let timeTrans = new Date();
 
     watchEffect(_ => {
-        const sortable = [];
-        const rank = {}
-
-        for (let name of names) {
-            if (!isNaN(data[name])) {
-                sortable.push([name, data[name]]);
-            }
-        }
-
-        console.log(sortable);
-
-        sortable.sort(function(a, b) {
-            return b[1] - a[1];
-        });
-
-        console.log(sortable);
-
-        for (let i = 0; i < sortable.length; i++) {
-            const name = sortable[i][0];
-            if (i < 10) {
-                rank[name] = i + 1;
-            } else {
-                rank[name] = 15;
-            }
-        }
+        const [sortable, rank] = sort(names, data);
 
         const max = sortable[0][1];
         const duration = 500;
 
         x
-            .domain([0, max])
+            .domain([0, max * 1.2])
             .range([marginLeft, width - marginRight]);
 
         gx.transition()
@@ -466,29 +877,24 @@ function createBarRace(names, data, dict, date) {
         }
     });
 
-    
-
-    
-
-    // for (let i = 0; i < count; i++) {
-    //     watchEffect(() => {
-    //         console.log(y(length[i].value));
-    //         bars[i].transition().duration(1000).attr("y", y(i + 1 - 0.3)).attr("height", y(i + 1 + 0.3) - y(i + 1 - 0.3));
-    //     })
-    // }
+    return svg;
 }
 
-
-
 onMounted(() => {
-    // Declare the chart dimensions and margins.
-    
+    // for (let src of [
+    //     "https://d3js.org/d3.v6.js", 
+    //     "https://d3js.org/d3-scale-chromatic.v3.min.js", 
+    //     "https://d3js.org/d3-geo-projection.v4.min.js"]) {
+    //     const script = document.createElement('script');
+    //     script.setAttribute('src', src);
+    //     document.head.appendChild(script);
+    // }
 
-    // Declare the x (horizontal position) scale.
-    
+    const stylesheet = document.createElement('link');
+    stylesheet.setAttribute('rel', 'stylesheet');
+    stylesheet.setAttribute('href', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css');
+    document.head.appendChild(stylesheet);
 })
-
-
 
 function a() {
     console.log(gy);
@@ -525,7 +931,11 @@ function a() {
 </script>
 
 <template>
-    <div id="container"/>
-    <button @click="b">a</button>
+    <div id="container"></div>
+    <!-- <div class="container-fluid min-vh-100 d-flex flex-column">
+        <div id="container" class="row flex-grow-4" style="height: 1240; width: 640;"/>
+        <div id="buttons" class="row flex-grow-1"/>
+    </div> -->
+    <!-- <button @click="b">a</button> -->
     <!-- <span v-html="svg.node().html()"/> -->
 </template>
